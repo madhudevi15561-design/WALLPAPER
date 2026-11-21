@@ -13,7 +13,7 @@ object FormulaRepository {
     private const val KEY_SUBJECT_IDX = "subject_idx"
     private const val KEY_SEEN = "seen_titles"
     private const val KEY_STATUS = "last_api_status"
-    private const val KEY_CLEANED = "cleaned_v4_queue"
+    private const val KEY_CLEANED = "cleaned_v5_queue"
     private val SUBJECTS = listOf("PHYSICS", "CHEMISTRY", "MATHS")
     private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
     private val isFetching = AtomicBoolean(false)
@@ -36,7 +36,7 @@ object FormulaRepository {
         val p = getQueue(context, "PHYSICS").size
         val c = getQueue(context, "CHEMISTRY").size
         val m = getQueue(context, "MATHS").size
-        return "Ready in Queue -> Phy: $p | Chem: $c \vert{} Maths:$m"
+        return "Ready in Queue - Phy: $p , Chem: $c , Maths:$m"
     }
 
     private fun setStatus(context: Context, msg: String) {
