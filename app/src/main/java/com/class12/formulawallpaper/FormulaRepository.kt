@@ -12,7 +12,9 @@ object FormulaRepository {
     private const val KEY_API = "gemini_api_key"
     private const val KEY_SUBJECT_IDX = "subject_idx"
     private const val KEY_SEEN = "seen_titles"
+    private const val KEY_STATUS = "last_api_status"
     private val SUBJECTS = listOf("PHYSICS", "CHEMISTRY", "MATHS")
+    private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
     private val isFetching = AtomicBoolean(false)
 
     fun saveApiKey(context: Context, key: String) {
@@ -23,6 +25,22 @@ object FormulaRepository {
     fun getApiKey(context: Context): String =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(KEY_API, "") ?: ""
+
+    fun getLastStatus(context: Context): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_STATUS, "Not fetched yet") ?: "Not fetched yet"
+
+    fun getQueueSummary(context: Context): String {
+        val p = getQueue(context, "PHYSICS").size
+        val c = getQueue(context, "CHEMISTRY").size
+        val m = getQueue(context, "MATHS").size
+        return "Ready in Queue → Phy: $p | Chem: $c \vert{} Maths:$m"
+    }
+
+    private fun setStatus(context: Context, msg: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_STATUS, msg).apply()
+    }
 
     fun popNextCard(context: Context): FormulaCard {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -46,13 +64,23 @@ object FormulaRepository {
         return card
     }
 
-    fun refillAllAsync(context: Context) {
+    fun refillAllAsync(context: Context, onUpdate: (() -> Unit)? = null) {
         Thread {
+            setStatus(context, "Fetching AI formulas...")
+            onUpdate?.invoke()
+            var anySuccess = false
             SUBJECTS.forEach { subject ->
-                if (getQueue(context, subject).size < 3) {
-                    fetchFromGemini(context, subject)
+                if (getQueue(context, subject).size < 4) {
+                    if (fetchFromGemini(context, subject)) {
+                        anySuccess = true
+                    }
+                    onUpdate?.invoke()
                 }
             }
+            if (anySuccess) {
+                setStatus(context, "Connected! Fresh AI formulas loaded.")
+            }
+            onUpdate?.invoke()
         }.start()
     }
 
@@ -67,9 +95,12 @@ object FormulaRepository {
         }.start()
     }
 
-    private fun fetchFromGemini(context: Context, subject: String) {
+    private fun fetchFromGemini(context: Context, subject: String): Boolean {
         val apiKey = getApiKey(context)
-        if (apiKey.isBlank()) return
+        if (apiKey.isBlank()) {
+            setStatus(context, "No API key saved")
+            return false
+        }
 
         val seenList = getSeenTitles(context).takeLast(60).joinToString(", ")
         val prompt = """
@@ -90,44 +121,65 @@ object FormulaRepository {
             - "takeaway": 1 short sentence explaining what it means in plain words
         """.trimIndent()
 
-        val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
-        val conn = (url.openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
-            setRequestProperty("Content-Type", "application/json")
-            doOutput = true
-            connectTimeout = 15000
-            readTimeout = 30000
-        }
+        var lastError = "Unknown error"
 
-        val payload = JSONObject().apply {
-            put("contents", JSONArray().put(
-                JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))
-            ))
-            put("generationConfig", JSONObject().put("responseMimeType", "application/json"))
-        }
-
-        try {
-            conn.outputStream.use { it.write(payload.toString().toByteArray()) }
-            if (conn.responseCode != 200) return
-
-            val responseText = conn.inputStream.bufferedReader().readText()
-            val rawJson = JSONObject(responseText)
-                .getJSONArray("candidates").getJSONObject(0)
-                .getJSONObject("content").getJSONArray("parts")
-                .getJSONObject(0).getString("text")
-                .trim()
-                .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
-
-            val arr = JSONArray(rawJson)
-            val queue = getQueue(context, subject)
-            for (i in 0 until arr.length()) {
-                queue.add(FormulaCard.fromJson(arr.getJSONObject(i)))
+        for (model in MODELS) {
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                setRequestProperty("Content-Type", "application/json")
+                doOutput = true
+                connectTimeout = 15000
+                readTimeout = 30000
             }
-            saveQueue(context, subject, queue)
-        } catch (_: Exception) {
-        } finally {
-            conn.disconnect()
+
+            val payload = JSONObject().apply {
+                put("contents", JSONArray().put(
+                    JSONObject().put("parts", JSONArray().put(JSONObject().put("text", prompt)))
+                ))
+                put("generationConfig", JSONObject().put("responseMimeType", "application/json"))
+            }
+
+            try {
+                conn.outputStream.use { it.write(payload.toString().toByteArray()) }
+                val code = conn.responseCode
+                if (code != 200) {
+                    val errBody = conn.errorStream?.bufferedReader()?.readText()?.take(120) ?: ""
+                    lastError = "HTTP $code ($model):$errBody"
+                    continue
+                }
+
+                val responseText = conn.inputStream.bufferedReader().readText()
+                val rawJson = JSONObject(responseText)
+                    .getJSONArray("candidates").getJSONObject(0)
+                    .getJSONObject("content").getJSONArray("parts")
+                    .getJSONObject(0).getString("text")
+                    .trim()
+                    .removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+
+                val arr = if (rawJson.startsWith("[")) {
+                    JSONArray(rawJson)
+                } else {
+                    val obj = JSONObject(rawJson)
+                    val firstKey = obj.keys().next()
+                    obj.getJSONArray(firstKey)
+                }
+
+                val queue = getQueue(context, subject)
+                for (i in 0 until arr.length()) {
+                    queue.add(FormulaCard.fromJson(arr.getJSONObject(i)))
+                }
+                saveQueue(context, subject, queue)
+                return true
+            } catch (e: Exception) {
+                lastError = "${e.javaClass.simpleName}: ${e.message}"
+            } finally {
+                conn.disconnect()
+            }
         }
+
+        setStatus(context, "API Error: $lastError")
+        return false
     }
 
     private fun getQueue(context: Context, subject: String): MutableList<FormulaCard> {
