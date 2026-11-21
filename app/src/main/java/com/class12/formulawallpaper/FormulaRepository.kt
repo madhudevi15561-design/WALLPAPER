@@ -13,7 +13,7 @@ object FormulaRepository {
     private const val KEY_SUBJECT_IDX = "subject_idx"
     private const val KEY_SEEN = "seen_titles"
     private const val KEY_STATUS = "last_api_status"
-    private const val KEY_CLEANED = "cleaned_v2_queue"
+    private const val KEY_CLEANED = "cleaned_v3_queue"
     private val SUBJECTS = listOf("PHYSICS", "CHEMISTRY", "MATHS")
     private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
     private val isFetching = AtomicBoolean(false)
@@ -122,8 +122,8 @@ object FormulaRepository {
         val prompt = """
             Generate 8 distinct Class 12 CBSE/NCERT $subject formulas or key concepts.
             NEVER repeat any of these previously shown titles: [$seenList].
-            Do NOT use LaTeX commands (never write \frac, \int, \sqrt, or backslashes).
-            Write multiplication by placing symbols right next to each other without "*" or "×" between variables (for example write "Kb m" or "nRT", never "K_b * m").
+            Do not use slashes or code commands in formulas.
+            Write multiplication by placing symbols right next to each other without "*" or "x" between variables (for example write "Kb m" or "nRT", never "K_b * m").
             Use real textbook symbols like Δ, α, β, γ, θ, λ, μ, ν, ω, ε₀, π, →, ⇌, ², ³.
             For subscripts on symbols, use an underscore right after the letter like T_b, K_b, q_0, E_cell so the renderer draws them as proper small subscripts.
             Return ONLY a valid JSON array of objects with these exact keys:
@@ -133,7 +133,7 @@ object FormulaRepository {
             - "layout": one of "simple", "fraction", "integral", or "root"
             - "prefix": left side before the main structure, e.g. "ΔT_b = " or "I = " (or "" if none)
             - "numerator": top of fraction, or expression inside root/integral, or full formula if layout is "simple"
-            - "denominator": bottom of fraction, or differential like "dx" / "dt" (or "" if unused)
+            - "denominator": bottom of fraction, or differential like "dx" or "dt" (or "" if unused)
             - "lowerLimit": lower integral bound if layout is "integral" (else "")
             - "upperLimit": upper integral bound if layout is "integral" (else "")
             - "takeaway": 1 short sentence explaining what it means in plain words
