@@ -13,6 +13,7 @@ object FormulaRepository {
     private const val KEY_SUBJECT_IDX = "subject_idx"
     private const val KEY_SEEN = "seen_titles"
     private const val KEY_STATUS = "last_api_status"
+    private const val KEY_CLEANED = "cleaned_v2_queue"
     private val SUBJECTS = listOf("PHYSICS", "CHEMISTRY", "MATHS")
     private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
     private val isFetching = AtomicBoolean(false)
@@ -31,10 +32,11 @@ object FormulaRepository {
             .getString(KEY_STATUS, "Not fetched yet") ?: "Not fetched yet"
 
     fun getQueueSummary(context: Context): String {
+        ensureCleanQueueOnce(context)
         val p = getQueue(context, "PHYSICS").size
         val c = getQueue(context, "CHEMISTRY").size
         val m = getQueue(context, "MATHS").size
-        return "Ready in Queue -> Phy: $p | Chem: $c | Maths: $m"
+        return "Ready in Queue -> Phy: $p | Chem: $c \vert{} Maths:$m"
     }
 
     private fun setStatus(context: Context, msg: String) {
@@ -42,7 +44,20 @@ object FormulaRepository {
             .edit().putString(KEY_STATUS, msg).apply()
     }
 
+    private fun ensureCleanQueueOnce(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean(KEY_CLEANED, false)) {
+            prefs.edit()
+                .remove("queue_PHYSICS")
+                .remove("queue_CHEMISTRY")
+                .remove("queue_MATHS")
+                .putBoolean(KEY_CLEANED, true)
+                .apply()
+        }
+    }
+
     fun popNextCard(context: Context): FormulaCard {
+        ensureCleanQueueOnce(context)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val idx = prefs.getInt(KEY_SUBJECT_IDX, 0) % SUBJECTS.size
         val subject = SUBJECTS[idx]
@@ -65,6 +80,7 @@ object FormulaRepository {
     }
 
     fun refillAllAsync(context: Context, onUpdate: (() -> Unit)? = null) {
+        ensureCleanQueueOnce(context)
         Thread {
             setStatus(context, "Fetching AI formulas...")
             onUpdate?.invoke()
@@ -107,13 +123,15 @@ object FormulaRepository {
             Generate 8 distinct Class 12 CBSE/NCERT $subject formulas or key concepts.
             NEVER repeat any of these previously shown titles: [$seenList].
             Do NOT use LaTeX commands (never write \frac, \int, \sqrt, or backslashes).
+            Write multiplication by placing symbols right next to each other without "*" or "×" between variables (for example write "Kb m" or "nRT", never "K_b * m").
             Use real textbook symbols like Δ, α, β, γ, θ, λ, μ, ν, ω, ε₀, π, →, ⇌, ², ³.
+            For subscripts on symbols, use an underscore right after the letter like T_b, K_b, q_0, E_cell so the renderer draws them as proper small subscripts.
             Return ONLY a valid JSON array of objects with these exact keys:
             - "subject": "$subject"
             - "chapter": short NCERT chapter name
             - "title": concept name
             - "layout": one of "simple", "fraction", "integral", or "root"
-            - "prefix": left side before the main structure, e.g. "ΔV = " or "I = " (or "" if none)
+            - "prefix": left side before the main structure, e.g. "ΔT_b = " or "I = " (or "" if none)
             - "numerator": top of fraction, or expression inside root/integral, or full formula if layout is "simple"
             - "denominator": bottom of fraction, or differential like "dx" / "dt" (or "" if unused)
             - "lowerLimit": lower integral bound if layout is "integral" (else "")
@@ -220,7 +238,7 @@ object FormulaRepository {
             layout = "fraction",
             prefix = "ΔV = ",
             numerator = "W",
-            denominator = "q₀",
+            denominator = "q_0",
             lowerLimit = "",
             upperLimit = "",
             takeaway = "Work done per unit positive test charge moved between two points."
