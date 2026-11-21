@@ -34,7 +34,7 @@ object FormulaRepository {
         val p = getQueue(context, "PHYSICS").size
         val c = getQueue(context, "CHEMISTRY").size
         val m = getQueue(context, "MATHS").size
-        return "Ready in Queue → Phy: $p | Chem: $c \vert{} Maths:$m"
+        return "Ready in Queue -> Phy: $p | Chem: $c | Maths: $m"
     }
 
     private fun setStatus(context: Context, msg: String) {
