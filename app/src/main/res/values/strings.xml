@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Formula Wallpaper</string>
+    <string name="accessibility_service_description">Cycles Class 12 Physics, Chemistry, and Maths formulas on the home wallpaper when the screen turns off.</string>
+</resources>
