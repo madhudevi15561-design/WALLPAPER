@@ -11,6 +11,7 @@ import android.widget.*
 class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
+    private lateinit var queueText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,11 +28,16 @@ class MainActivity : Activity() {
 
         statusText = TextView(this).apply {
             textSize = 15f
-            setPadding(0, 20, 0, 24)
+            setPadding(0, 20, 0, 10)
+        }
+
+        queueText = TextView(this).apply {
+            textSize = 14f
+            setPadding(0, 0, 0, 24)
         }
 
         val keyInput = EditText(this).apply {
-            hint = "Paste Gemini API Key (optional for starter cards)"
+            hint = "Paste Gemini API Key"
             setText(FormulaRepository.getApiKey(this@MainActivity))
         }
 
@@ -39,8 +45,10 @@ class MainActivity : Activity() {
             text = "Save Key & Fetch Formulas"
             setOnClickListener {
                 FormulaRepository.saveApiKey(this@MainActivity, keyInput.text.toString())
-                FormulaRepository.refillAllAsync(this@MainActivity)
-                Toast.makeText(this@MainActivity, "API key saved & queue refilling!", Toast.LENGTH_SHORT).show()
+                FormulaRepository.refillAllAsync(this@MainActivity) {
+                    runOnUiThread { refreshInfo() }
+                }
+                Toast.makeText(this@MainActivity, "Fetching formulas...", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -63,12 +71,14 @@ class MainActivity : Activity() {
                     WallpaperManager.FLAG_SYSTEM
                 )
                 bitmap.recycle()
+                refreshInfo()
                 Toast.makeText(this@MainActivity, "Swapped to ${card.subject}: ${card.title}", Toast.LENGTH_SHORT).show()
             }
         }
 
         layout.addView(title)
         layout.addView(statusText)
+        layout.addView(queueText)
         layout.addView(keyInput)
         layout.addView(saveBtn)
         layout.addView(accessibilityBtn)
@@ -78,11 +88,16 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        refreshInfo()
+    }
+
+    private fun refreshInfo() {
         statusText.text = if (isAccessibilityEnabled()) {
-            "Status: Accessibility enabled (No persistent notification)"
+            "Accessibility: Enabled (No persistent notification)"
         } else {
-            "Status: Turn on 'Formula Wallpaper' in Accessibility Settings"
+            "Accessibility: Turn on 'Formula Wallpaper' in Settings"
         }
+        queueText.text = "${FormulaRepository.getQueueSummary(this)}\nAPI: ${FormulaRepository.getLastStatus(this)}"
     }
 
     private fun isAccessibilityEnabled(): Boolean {
