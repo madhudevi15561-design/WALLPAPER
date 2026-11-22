@@ -47,7 +47,7 @@ object WallpaperRenderer {
         var y = if (isMaths) h * 0.10f else h * 0.13f
 
         y = drawTextBlock(
-            canvas, formatBookText("${card.subject}  •  ${card.chapter.uppercase()}"),
+            canvas, formatBookText("${card.subject}  •${card.chapter.uppercase()}"),
             marginX, y, textWidth,
             size = w * 0.029f, color = accent, bold = true
         ) + 14f
@@ -65,27 +65,30 @@ object WallpaperRenderer {
             strokeWidth = 2.5f
         }
         canvas.drawLine(marginX, y, marginX + w * 0.28f, y, dividerPaint)
-        y += 18f
+        y += 20f
 
-        val takeawaySize = if (isMaths) w * 0.032f else w * 0.035f
+        val takeawaySize = if (isMaths) w * 0.039f else w * 0.035f
+        val takeawayColor = if (isMaths) Color.parseColor("#E2E8F0") else Color.parseColor("#CBD5E1")
         drawTextBlock(
             canvas, formatBookText(card.takeaway),
             marginX, y, textWidth,
-            size = takeawaySize, color = Color.parseColor("#CBD5E1"), bold = false
+            size = takeawaySize, color = takeawayColor, bold = false, serif = isMaths
         )
 
         return bitmap
     }
 
     private fun formatBookText(raw: String): CharSequence {
-        // Keep line breaks intact while cleaning extra horizontal spaces and multiplication *
         val cleaned = raw
+            .replace("\\n", "\n")
+            .replace("/n", "\n")
             .replace("\r\n", "\n")
             .replace(Regex("[ \\t]*\\*[ \\t]*"), " ")
             .replace(Regex("[ \\t]+"), " ")
             .lines()
-            .joinToString("\n") { it.trim() }
-            .trim()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .joinToString("\n")
 
         val sb = SpannableStringBuilder()
         var i = 0
@@ -226,7 +229,7 @@ object WallpaperRenderer {
                 }
 
                 val bodyX = cursorX + signW + 40f
-                val bodySpanned = formatBookText("${card.numerator} ${card.denominator}".trim())
+                val bodySpanned = formatBookText("${card.numerator}${card.denominator}".trim())
                 drawInlineSpanned(canvas, bodySpanned, bodyX, y + eqSize * 0.25f, eqSize, Color.WHITE, serif = true)
                 botCurveY + 20f
             }
@@ -251,7 +254,7 @@ object WallpaperRenderer {
             }
 
             else -> {
-                val fullSpanned = formatBookText("${card.numerator} ${card.denominator}".trim().ifBlank { card.prefix })
+                val fullSpanned = formatBookText("${card.numerator}${card.denominator}".trim().ifBlank { card.prefix })
                 drawTextBlock(
                     canvas, fullSpanned, cursorX, y + eqSize * 0.20f,
                     (maxWidth - (cursorX - x)).toInt().coerceAtLeast(200),
@@ -306,7 +309,7 @@ object WallpaperRenderer {
         }
         val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setLineSpacing(8f, 1.15f)
+            .setLineSpacing(14f, 1.22f)
             .build()
         canvas.save()
         canvas.translate(x, y)
