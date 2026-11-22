@@ -9,6 +9,7 @@ import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.style.RelativeSizeSpan
 import android.text.style.SubscriptSpan
+import android.text.style.SuperscriptSpan
 
 object WallpaperRenderer {
 
@@ -42,40 +43,39 @@ object WallpaperRenderer {
 
         val marginX = w * 0.09f
         val textWidth = (w - marginX * 2f).toInt()
-        var y = h * 0.14f
+        var y = h * 0.13f
 
         y = drawTextBlock(
-            canvas, formatBookText("${card.subject}  •  ${card.chapter.uppercase()}"),
+            canvas, formatBookText("${card.subject}  •${card.chapter.uppercase()}"),
             marginX, y, textWidth,
             size = w * 0.030f, color = accent, bold = true
-        ) + 18f
+        ) + 16f
 
         y = drawTextBlock(
             canvas, formatBookText(card.title),
             marginX, y, textWidth,
-            size = w * 0.056f, color = Color.parseColor("#F1F5F9"), bold = true
-        ) + 34f
+            size = w * 0.054f, color = Color.parseColor("#F1F5F9"), bold = true
+        ) + 28f
 
-        y = drawBookFormula(canvas, card, marginX, y, textWidth.toFloat(), w, accent) + 28f
+        y = drawBookFormula(canvas, card, marginX, y, textWidth.toFloat(), w, accent) + 24f
 
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(70, 226, 232, 240)
             strokeWidth = 2.5f
         }
         canvas.drawLine(marginX, y, marginX + w * 0.28f, y, dividerPaint)
-        y += 24f
+        y += 20f
 
         drawTextBlock(
             canvas, formatBookText(card.takeaway),
             marginX, y, textWidth,
-            size = w * 0.035f, color = Color.parseColor("#94A3B8"), bold = false
+            size = w * 0.034f, color = Color.parseColor("#CBD5E1"), bold = false
         )
 
         return bitmap
     }
 
     private fun formatBookText(raw: String): CharSequence {
-        // Remove multiplication asterisks between terms while keeping spaces clean
         val cleaned = raw
             .replace(Regex("\\s*\\*\\s*"), " ")
             .replace(Regex("\\s+"), " ")
@@ -84,26 +84,52 @@ object WallpaperRenderer {
         val sb = SpannableStringBuilder()
         var i = 0
         while (i < cleaned.length) {
-            if (cleaned[i] == '_' && i + 1 < cleaned.length && !cleaned[i + 1].isWhitespace()) {
+            val ch = cleaned[i]
+            if ((ch == '_' || ch == '^') && i + 1 < cleaned.length && !cleaned[i + 1].isWhitespace()) {
                 val start = sb.length
                 var j = i + 1
-                while (j < cleaned.length && cleaned[j].isLetterOrDigit()) {
+                if (cleaned[j] == '{') {
+                    val closeIdx = cleaned.indexOf('}', j + 1)
+                    if (closeIdx > j + 1) {
+                        val inner = cleaned.substring(j + 1, closeIdx)
+                        sb.append(inner)
+                        val end = sb.length
+                        applyScriptSpan(sb, start, end, isSuperscript = (ch == '^'))
+                        i = closeIdx + 1
+                        continue
+                    }
+                }
+                while (j < cleaned.length && (cleaned[j].isLetterOrDigit() || cleaned[j] == '-' || cleaned[j] == '+')) {
                     j++
                 }
                 if (j > i + 1) {
-                    val subPart = cleaned.substring(i + 1, j)
-                    sb.append(subPart)
+                    val part = cleaned.substring(i + 1, j)
+                    sb.append(part)
                     val end = sb.length
-                    sb.setSpan(SubscriptSpan(), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    sb.setSpan(RelativeSizeSpan(0.68f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    applyScriptSpan(sb, start, end, isSuperscript = (ch == '^'))
                     i = j
                     continue
                 }
             }
-            sb.append(cleaned[i])
+            sb.append(ch)
             i++
         }
         return sb
+    }
+
+    private fun applyScriptSpan(
+        sb: SpannableStringBuilder,
+        start: Int,
+        end: Int,
+        isSuperscript: Boolean
+    ) {
+        if (start >= end) return
+        if (isSuperscript) {
+            sb.setSpan(SuperscriptSpan(), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        } else {
+            sb.setSpan(SubscriptSpan(), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+        sb.setSpan(RelativeSizeSpan(0.68f), start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
     }
 
     private fun drawBookFormula(
@@ -115,8 +141,12 @@ object WallpaperRenderer {
         screenW: Int,
         accent: Int
     ): Float {
-        var eqSize = screenW * 0.062f
-        val subSize = screenW * 0.034f
+        var eqSize = if (card.subject.equals("MATHS", ignoreCase = true)) {
+            screenW * 0.044f
+        } else {
+            screenW * 0.058f
+        }
+        val subSize = screenW * 0.033f
         val eqPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             textSize = eqSize
             color = Color.WHITE
@@ -143,15 +173,15 @@ object WallpaperRenderer {
             eqPaint.measureText(prefixSpanned.toString() + denSpanned.toString())
         )
         if (longestPart > maxWidth * 0.92f && card.layout.lowercase() != "simple") {
-            eqSize *= (maxWidth * 0.90f / longestPart).coerceAtLeast(0.62f)
+            eqSize *= (maxWidth * 0.90f / longestPart).coerceAtLeast(0.60f)
             eqPaint.textSize = eqSize
         }
 
         var cursorX = x
-        val centerY = y + eqSize * 1.15f
+        val centerY = y + eqSize * 1.25f
 
         if (prefixSpanned.isNotEmpty()) {
-            drawInlineSpanned(canvas, prefixSpanned, cursorX, y, eqSize, Color.WHITE, serif = true)
+            drawInlineSpanned(canvas, prefixSpanned, cursorX, y + eqSize * 0.25f, eqSize, Color.WHITE, serif = true)
             cursorX += eqPaint.measureText(prefixSpanned.toString()) + 12f
         }
 
@@ -160,18 +190,18 @@ object WallpaperRenderer {
                 val topW = eqPaint.measureText(numSpanned.toString())
                 val botW = eqPaint.measureText(denSpanned.toString())
                 val barW = maxOf(topW, botW) + 34f
-                val barY = centerY - eqSize * 0.25f
+                val barY = centerY - eqSize * 0.20f
 
-                drawInlineSpanned(canvas, numSpanned, cursorX + (barW - topW) / 2f, barY - eqSize * 1.05f, eqSize, Color.WHITE, serif = true)
+                drawInlineSpanned(canvas, numSpanned, cursorX + (barW - topW) / 2f, barY - eqSize * 1.15f, eqSize, Color.WHITE, serif = true)
                 canvas.drawLine(cursorX, barY, cursorX + barW, barY, linePaint)
-                drawInlineSpanned(canvas, denSpanned, cursorX + (barW - botW) / 2f, barY + 8f, eqSize, Color.WHITE, serif = true)
-                barY + eqSize * 1.25f
+                drawInlineSpanned(canvas, denSpanned, cursorX + (barW - botW) / 2f, barY + 12f, eqSize, Color.WHITE, serif = true)
+                barY + eqSize * 1.35f
             }
 
             "integral" -> {
                 val signW = eqSize * 0.72f
-                val topCurveY = y + 8f
-                val botCurveY = y + eqSize * 2.15f
+                val topCurveY = y + 12f
+                val botCurveY = y + eqSize * 2.25f
                 val midX = cursorX + signW * 0.5f
 
                 val path = Path().apply {
@@ -190,8 +220,8 @@ object WallpaperRenderer {
                 }
 
                 val bodyX = cursorX + signW + 40f
-                val bodySpanned = formatBookText("${card.numerator} ${card.denominator}".trim())
-                drawInlineSpanned(canvas, bodySpanned, bodyX, y, eqSize, Color.WHITE, serif = true)
+                val bodySpanned = formatBookText("${card.numerator}${card.denominator}".trim())
+                drawInlineSpanned(canvas, bodySpanned, bodyX, y + eqSize * 0.25f, eqSize, Color.WHITE, serif = true)
                 botCurveY + 20f
             }
 
@@ -199,8 +229,8 @@ object WallpaperRenderer {
                 val innerRaw = card.numerator.ifBlank { card.denominator }
                 val innerSpanned = formatBookText(innerRaw)
                 val innerW = eqPaint.measureText(innerSpanned.toString()) + 24f
-                val topY = y + 16f
-                val botY = y + eqSize * 1.50f
+                val topY = y + 20f
+                val botY = y + eqSize * 1.60f
                 val startX = cursorX
 
                 val rootPath = Path().apply {
@@ -210,17 +240,17 @@ object WallpaperRenderer {
                     lineTo(startX + 40f + innerW, topY)
                 }
                 canvas.drawPath(rootPath, linePaint)
-                drawInlineSpanned(canvas, innerSpanned, startX + 52f, topY + 6f, eqSize, Color.WHITE, serif = true)
+                drawInlineSpanned(canvas, innerSpanned, startX + 52f, topY + 10f, eqSize, Color.WHITE, serif = true)
                 botY + 20f
             }
 
             else -> {
-                val fullSpanned = formatBookText("${card.numerator} ${card.denominator}".trim().ifBlank { card.prefix })
+                val fullSpanned = formatBookText("${card.numerator}${card.denominator}".trim().ifBlank { card.prefix })
                 drawTextBlock(
-                    canvas, fullSpanned, cursorX, y,
+                    canvas, fullSpanned, cursorX, y + eqSize * 0.20f,
                     (maxWidth - (cursorX - x)).toInt().coerceAtLeast(200),
                     eqSize, Color.WHITE, bold = true, serif = true
-                ) + 12f
+                ) + 16f
             }
         }
     }
@@ -270,7 +300,7 @@ object WallpaperRenderer {
         }
         val layout = StaticLayout.Builder.obtain(text, 0, text.length, paint, width)
             .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setLineSpacing(6f, 1.12f)
+            .setLineSpacing(8f, 1.15f)
             .build()
         canvas.save()
         canvas.translate(x, y)
