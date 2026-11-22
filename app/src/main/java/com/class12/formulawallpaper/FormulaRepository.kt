@@ -13,7 +13,7 @@ object FormulaRepository {
     private const val KEY_SUBJECT_IDX = "subject_idx"
     private const val KEY_SEEN = "seen_titles"
     private const val KEY_STATUS = "last_api_status"
-    private const val KEY_CLEANED = "cleaned_v5_queue"
+    private const val KEY_CLEANED = "cleaned_v6_queue"
     private val SUBJECTS = listOf("PHYSICS", "CHEMISTRY", "MATHS")
     private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
     private val isFetching = AtomicBoolean(false)
@@ -111,6 +111,27 @@ object FormulaRepository {
         }.start()
     }
 
+    private fun buildSubjectRule(subject: String): String = when (subject.uppercase()) {
+        "PHYSICS" -> """
+            Give ONLY high-importance Class 12 CBSE/NCERT Physics formulas that are frequently used in numericals or core conceptual understanding (such as Gauss law, capacitor energy, drift velocity, Kirchhoff/Wheatstone bridge, Lorentz force, Biot-Savart/Ampere law, Faraday/Lenz law, self/mutual inductance, AC reactance/impedance, lens maker/prism, de Broglie wavelength, photoelectric/Bohr energy).
+            SKIP obscure, niche, or rarely used formulas.
+        """.trimIndent()
+
+        "CHEMISTRY" -> """
+            Give a rich mix of Class 12 CBSE/NCERT Chemistry items:
+            1) Important formulas (Nernst equation, Arrhenius equation, osmotic pressure, van 't Hoff factor, integrated rate laws),
+            2) Key theory definitions or concepts (Molar conductivity, azeotrope, order vs molecularity, crystal field splitting, SN1 vs SN2), and
+            3) Important chemical reactions (named reactions like Aldol condensation, Cannizzaro, Hoffmann bromamide, Sandmeyer, Reimer-Tiemann, or important preparations like Haber/Ostwald/KMnO4/diazonium salts).
+            Do NOT give only formulas.
+        """.trimIndent()
+
+        else -> """
+            Give Class 12 CBSE/NCERT Maths PRACTICE QUESTIONS on differentiation or integration WITH THEIR SOLUTION.
+            Put the question expression in "numerator" (and "prefix" like "Differentiate: " or "Integrate: ") and put the final/key solution steps in "takeaway" (starting with "Ans: ...").
+            Do NOT just list standalone formula sheets without a problem and solution.
+        """.trimIndent()
+    }
+
     private fun fetchFromGemini(context: Context, subject: String): Boolean {
         val apiKey = getApiKey(context)
         if (apiKey.isBlank()) {
@@ -119,24 +140,26 @@ object FormulaRepository {
         }
 
         val seenList = getSeenTitles(context).takeLast(60).joinToString(", ")
+        val subjectRule = buildSubjectRule(subject)
+
         val prompt = """
-            Generate 8 distinct Class 12 CBSE/NCERT $subject formulas or key concepts.
-            NEVER repeat any of these previously shown titles: [$seenList].
-            Do not use slashes or code commands in formulas.
+            Generate 8 distinct Class 12 CBSE/NCERT $subject items.
+            NEVER repeat any of these previously shown titles: [$seenList].$subjectRule
+            Do not use slashes or code commands in expressions.
             Write multiplication by placing symbols right next to each other without "*" or "x" between variables (for example write "Kb m" or "nRT", never "K_b * m").
             Use real textbook symbols like Δ, α, β, γ, θ, λ, μ, ν, ω, ε₀, π, →, ⇌, ², ³.
-            For subscripts on symbols, use an underscore right after the letter like T_b, K_b, q_0, E_cell so the renderer draws them as proper small subscripts.
+            For subscripts use underscore like T_b, K_b, q_0, E_cell and for superscripts/powers use caret like P^0, x^2, e^-x, 10^-19 so the renderer draws proper raised/lowered textbook scripts.
             Return ONLY a valid JSON array of objects with these exact keys:
             - "subject": "$subject"
             - "chapter": short NCERT chapter name
-            - "title": concept name
+            - "title": short title or problem heading
             - "layout": one of "simple", "fraction", "integral", or "root"
-            - "prefix": left side before the main structure, e.g. "ΔT_b = " or "I = " (or "" if none)
-            - "numerator": top of fraction, or expression inside root/integral, or full formula if layout is "simple"
-            - "denominator": bottom of fraction, or differential like "dx" or "dt" (or "" if unused)
+            - "prefix": left side before the main structure, e.g. "ΔV = " or "Differentiate: " (or "" if none)
+            - "numerator": main expression, top of fraction, or expression inside root/integral
+            - "denominator": bottom of fraction, or differential like "dx" (or "" if unused)
             - "lowerLimit": lower integral bound if layout is "integral" (else "")
             - "upperLimit": upper integral bound if layout is "integral" (else "")
-            - "takeaway": 1 short sentence explaining what it means in plain words
+            - "takeaway": 1 to 2 concise lines with explanation or solution ("Ans: ...")
         """.trimIndent()
 
         var lastError = "Unknown error"
@@ -245,27 +268,27 @@ object FormulaRepository {
         )
         "CHEMISTRY" -> FormulaCard(
             subject = "CHEMISTRY",
-            chapter = "Electrochemistry",
-            title = "Nernst Equation (298 K)",
+            chapter = "Aldehydes & Ketones",
+            title = "Aldol Condensation",
             layout = "simple",
             prefix = "",
-            numerator = "E = E° - (0.059 / n) log Q",
+            numerator = "2 CH_3CHO -> CH_3CH(OH)CH_2CHO -> CH_3CH=CHCHO + H_2O",
             denominator = "",
             lowerLimit = "",
             upperLimit = "",
-            takeaway = "Relates cell potential to standard potential and reaction quotient."
+            takeaway = "Aldehydes/ketones with α-hydrogen form β-hydroxy carbonyls in dil. NaOH, then α,β-unsaturated compounds on heating."
         )
         else -> FormulaCard(
             subject = "MATHS",
             chapter = "Integrals",
-            title = "Definite Integral",
+            title = "Evaluate Integral",
             layout = "integral",
-            prefix = "I = ",
-            numerator = "f(x)",
+            prefix = "Find: ",
+            numerator = "x e^x",
             denominator = "dx",
-            lowerLimit = "a",
-            upperLimit = "b",
-            takeaway = "Net signed area between the curve f(x) and the x-axis from a to b."
+            lowerLimit = "0",
+            upperLimit = "1",
+            takeaway = "Ans: Using integration by parts, [x e^x - e^x] from 0 to 1 = 1."
         )
     }
 }
