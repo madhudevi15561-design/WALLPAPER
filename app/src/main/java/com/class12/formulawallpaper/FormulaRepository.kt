@@ -13,7 +13,7 @@ object FormulaRepository {
     private const val KEY_SUBJECT_IDX = "subject_idx"
     private const val KEY_SEEN = "seen_titles"
     private const val KEY_STATUS = "last_api_status"
-    private const val KEY_CLEANED = "cleaned_v7_queue"
+    private const val KEY_CLEANED = "cleaned_v8_queue"
     private val SUBJECTS = listOf("PHYSICS", "CHEMISTRY", "MATHS")
     private val MODELS = listOf("gemini-3.5-flash-lite", "gemini-3.8-flash")
     private val isFetching = AtomicBoolean(false)
@@ -128,10 +128,15 @@ object FormulaRepository {
         """.trimIndent()
 
         else -> """
-            Give CBSE Class 12 NCERT Maths EXERCISE QUESTIONS of differentiation or integration WITH A DETAILED STEP-BY-STEP SOLUTION.
+            Give Class 12 CBSE/NCERT Maths PRACTICE QUESTIONS on differentiation or integration WITH A PURE NOTEBOOK-STYLE SOLUTION.
             Put the question expression in "numerator" (and "prefix" like "Differentiate: " or "Find: ").
-            In "takeaway", write 5 to 8 clear, numbered solution steps separated by newline characters so each step is on its own line (for example: Step 1: ..., Step 2: ..., ..., Ans: ...).
-            Show the exact formula/substitution used, intermediate simplification, and final answer. Never give only a 1-line direct answer.
+            In "takeaway", write ONLY the algebraic solution lines (4 to 7 lines), with NO wordy explanations and NO "Step 1 / Step 2" labels.
+            Start the first line with "Ans: = " (or a brief "Let t = ..." line if using substitution, then "= ..."), and start every following line with "= ".
+            Always use the real symbol "∫" instead of the word "Integral".
+            Example format for takeaway:
+            Ans: = ∫ (sec^2(x) - 1) dx
+            = ∫ sec^2(x) dx - ∫ 1 dx
+            = tan(x) - x + C
         """.trimIndent()
     }
 
@@ -150,7 +155,7 @@ object FormulaRepository {
             NEVER repeat any of these previously shown titles: [$seenList].$subjectRule
             Do not use LaTeX commands or backslashes in expressions.
             Write multiplication by placing symbols right next to each other without "*" or "x" between variables (for example write "Kb m" or "nRT", never "K_b * m").
-            Use real textbook symbols like Δ, α, β, γ, θ, λ, μ, ν, ω, ε₀, π, →, ⇌, ², ³.
+            Use real textbook symbols like Δ, α, β, γ, θ, λ, μ, ν, ω, ε₀, π, ∫, √, →, ⇌, ², ³.
             For subscripts use underscore like T_b, K_b, q_0, E_cell and for superscripts/powers use caret like P^0, x^2, e^-x, 10^-19 so the renderer draws proper raised/lowered textbook scripts.
             Return ONLY a valid JSON array of objects with these exact keys:
             - "subject": "$subject"
@@ -162,7 +167,7 @@ object FormulaRepository {
             - "denominator": bottom of fraction, or differential like "dx" (or "" if unused)
             - "lowerLimit": lower integral bound if layout is "integral" (else "")
             - "upperLimit": upper integral bound if layout is "integral" (else "")
-            - "takeaway": explanation or detailed step-by-step solution as instructed above
+            - "takeaway": explanation or pure "=" solution lines as instructed above
         """.trimIndent()
 
         var lastError = "Unknown error"
@@ -284,14 +289,14 @@ object FormulaRepository {
         else -> FormulaCard(
             subject = "MATHS",
             chapter = "Integrals",
-            title = "Evaluate Definite Integral",
+            title = "Evaluate Integral of tan^2(x)",
             layout = "integral",
             prefix = "Find: ",
-            numerator = "x e^x",
+            numerator = "tan^2(x)",
             denominator = "dx",
-            lowerLimit = "0",
-            upperLimit = "1",
-            takeaway = "Step 1: Use Integration by Parts (ILATE rule).\nStep 2: Take u = x and dv = e^x dx.\nStep 3: Then du = dx and v = e^x.\nStep 4: Apply ∫ u dv = uv - ∫ v du.\nStep 5: I = [x e^x - ∫ e^x dx] from 0 to 1.\nStep 6: I = [x e^x - e^x] from 0 to 1.\nStep 7: Put limits: (1 e^1 - e^1) - (0 - e^0) = 0 - (-1).\nAns: 1"
+            lowerLimit = "",
+            upperLimit = "",
+            takeaway = "Ans: = ∫ (sec^2(x) - 1) dx\n= ∫ sec^2(x) dx - ∫ 1 dx\n= tan(x) - x + C"
         )
     }
 }
