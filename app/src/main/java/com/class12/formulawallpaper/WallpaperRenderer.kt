@@ -41,44 +41,50 @@ object WallpaperRenderer {
             else -> Color.parseColor("#D8B4FE")
         }
 
-        val marginX = w * 0.09f
+        val isMaths = card.subject.equals("MATHS", ignoreCase = true)
+        val marginX = w * 0.08f
         val textWidth = (w - marginX * 2f).toInt()
-        var y = h * 0.13f
+        var y = if (isMaths) h * 0.10f else h * 0.13f
 
         y = drawTextBlock(
-            canvas, formatBookText("${card.subject}  •${card.chapter.uppercase()}"),
+            canvas, formatBookText("${card.subject}  •  ${card.chapter.uppercase()}"),
             marginX, y, textWidth,
-            size = w * 0.030f, color = accent, bold = true
-        ) + 16f
+            size = w * 0.029f, color = accent, bold = true
+        ) + 14f
 
         y = drawTextBlock(
             canvas, formatBookText(card.title),
             marginX, y, textWidth,
-            size = w * 0.054f, color = Color.parseColor("#F1F5F9"), bold = true
-        ) + 28f
+            size = w * 0.050f, color = Color.parseColor("#F1F5F9"), bold = true
+        ) + 22f
 
-        y = drawBookFormula(canvas, card, marginX, y, textWidth.toFloat(), w, accent) + 24f
+        y = drawBookFormula(canvas, card, marginX, y, textWidth.toFloat(), w, accent) + 20f
 
         val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.argb(70, 226, 232, 240)
             strokeWidth = 2.5f
         }
         canvas.drawLine(marginX, y, marginX + w * 0.28f, y, dividerPaint)
-        y += 20f
+        y += 18f
 
+        val takeawaySize = if (isMaths) w * 0.032f else w * 0.035f
         drawTextBlock(
             canvas, formatBookText(card.takeaway),
             marginX, y, textWidth,
-            size = w * 0.034f, color = Color.parseColor("#CBD5E1"), bold = false
+            size = takeawaySize, color = Color.parseColor("#CBD5E1"), bold = false
         )
 
         return bitmap
     }
 
     private fun formatBookText(raw: String): CharSequence {
+        // Keep line breaks intact while cleaning extra horizontal spaces and multiplication *
         val cleaned = raw
-            .replace(Regex("\\s*\\*\\s*"), " ")
-            .replace(Regex("\\s+"), " ")
+            .replace("\r\n", "\n")
+            .replace(Regex("[ \\t]*\\*[ \\t]*"), " ")
+            .replace(Regex("[ \\t]+"), " ")
+            .lines()
+            .joinToString("\n") { it.trim() }
             .trim()
 
         val sb = SpannableStringBuilder()
@@ -220,7 +226,7 @@ object WallpaperRenderer {
                 }
 
                 val bodyX = cursorX + signW + 40f
-                val bodySpanned = formatBookText("${card.numerator}${card.denominator}".trim())
+                val bodySpanned = formatBookText("${card.numerator} ${card.denominator}".trim())
                 drawInlineSpanned(canvas, bodySpanned, bodyX, y + eqSize * 0.25f, eqSize, Color.WHITE, serif = true)
                 botCurveY + 20f
             }
@@ -245,7 +251,7 @@ object WallpaperRenderer {
             }
 
             else -> {
-                val fullSpanned = formatBookText("${card.numerator}${card.denominator}".trim().ifBlank { card.prefix })
+                val fullSpanned = formatBookText("${card.numerator} ${card.denominator}".trim().ifBlank { card.prefix })
                 drawTextBlock(
                     canvas, fullSpanned, cursorX, y + eqSize * 0.20f,
                     (maxWidth - (cursorX - x)).toInt().coerceAtLeast(200),
