@@ -126,8 +126,8 @@ object FormulaRepository {
         """.trimIndent()
 
         else -> """
-            Give Class 12 CBSE/NCERT Maths PRACTICE QUESTIONS on differentiation or integration WITH THEIR SOLUTION.
-            Put the question expression in "numerator" (and "prefix" like "Differentiate: " or "Integrate: ") and put the final/key solution steps in "takeaway" (starting with "Ans: ...").
+            Give Class 12 CBSE/NCERT Maths PRACTICE QUESTIONS on differentiation or integration WITH THEIR DETAILED SOLUTION.
+            Put the question expression in "numerator" (and "prefix" like "Differentiate: " or "Integrate: ") and put the detailed solution steps in "takeaway" (starting with "Ans: ...").
             Do NOT just list standalone formula sheets without a problem and solution.
         """.trimIndent()
     }
